@@ -1,0 +1,79 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/02/ALU.hdl
+
+/**
+ * The ALU (Arithmetic Logic Unit).
+ * Computes one of the following functions:
+ * x+y, x-y, y-x, 0, 1, -1, x, y, -x, -y, !x, !y,
+ * x+1, y+1, x-1, y-1, x&y, x|y on two 16-bit inputs, 
+ * according to 6 input bits denoted zx,nx,zy,ny,f,no.
+ * In addition, the ALU computes two 1-bit outputs:
+ * if the ALU output == 0, zr is set to 1; otherwise zr is set to 0;
+ * if the ALU output < 0, ng is set to 1; otherwise ng is set to 0.
+ */
+
+// Implementation: the ALU logic manipulates the x and y inputs
+// and operates on the resulting values, as follows:
+// if (zx == 1) set x = 0        // 16-bit constant
+// if (nx == 1) set x = !x       // bitwise not
+// if (zy == 1) set y = 0        // 16-bit constant
+// if (ny == 1) set y = !y       // bitwise not
+// if (f == 1)  set out = x + y  // integer 2's complement addition
+// if (f == 0)  set out = x & y  // bitwise and
+// if (no == 1) set out = !out   // bitwise not
+// if (out == 0) set zr = 1
+// if (out < 0) set ng = 1
+
+CHIP ALU {
+    IN  
+        x[16], y[16],  // 16-bit inputs        
+        zx, // zero the x input?
+        nx, // negate the x input?
+        zy, // zero the y input?
+        ny, // negate the y input?
+        f,  // compute out = x + y (if 1) or x & y (if 0)
+        no; // negate the out output?
+
+    OUT 
+        out[16], // 16-bit output
+        zr, // 1 if (out == 0), 0 otherwise
+        ng; // 1 if (out < 0),  0 otherwise
+
+    PARTS:
+   // Put you code here:
+   // zero x if true
+   Mux16(a=x, b[0..15]=false, sel=zx, out=zerox);
+   // flip bits of x if true
+   Not16(in=zerox, out=negx);
+   Mux16(a=zerox, b=negx, sel=nx, out=finalx);
+   // and for y
+   // zero y if true
+   Mux16(a=y, b[0..15]=false, sel=zy, out=zeroy);
+   // flip bits of x if true
+   Not16(in=zeroy, out=negy);
+   Mux16(a=zeroy, b=negy, sel=ny, out=finaly);
+   // use the adder to add16
+   Add16(a=finalx, b=finaly, out=resultadd);
+   // or AND them instead
+   And16(a=finalx, b=finaly, out=resultand);
+   Mux16(a=resultand, b=resultadd, sel=f, out=calculation);
+   // decide if you negate the calculation
+   Not16(in=calculation, out=negcalc);
+   // a million internal pins:
+   // answer is the final calculation, answer0 and answer1 are for determining zr
+   // zeroans is for the ng bit
+   Mux16(a=calculation, b=negcalc, sel=no, out=answer, out[0..7]=answer0, out[8..15]=answer1, out[15]=zeroans);
+   // return the status bits
+   // we can't just pipe the answer yet because we need the status bits
+   // determine zr by OR, if 1, zr is false
+   Or8Way(in=answer0, out=firsthalf);
+   Or8Way(in=answer1, out=secondhalf);
+   Or(a=firsthalf, b=secondhalf, out=notzr);
+   Not(in=notzr, out=zr);
+   // determine ng bit
+   Mux(a=false, b=true, sel=zeroans, out=ng);
+   // finally give the answer by using OR on the internal pin and a bunch of zeros
+   Or16(a=answer, b[0..15]=false, out=out);
+}

@@ -1,0 +1,20 @@
+// This file is for MPCS50211
+
+/**
+ * Subtracts one 16-bit value from another.
+ * out = a - b
+ * Overflow is ignored.
+ */
+
+CHIP Sub16 {
+    IN a[16], b[16];
+    OUT out[16];
+
+    PARTS:
+   // Put your code here:
+   
+   // subtraction is equal to NOT the x and NOT the result
+   Not16(in=a, out=na);
+   Add16(a=na, b=b, out=negans);
+   Not16(in=negans, out=out);
+}

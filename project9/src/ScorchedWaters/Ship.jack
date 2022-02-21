@@ -1,0 +1,346 @@
+// the Ship class, covering both the player's ship
+
+class Ship {
+    field int x, y; // screen location of the TOP RIGHT of the ship's hit box
+    field array hitbox; 
+    field int azimuth, power;
+    
+    constructor Ship new(int orig_x, int orig_y) {
+        let x = orig_x;
+        let y = orig_y;
+        let hitbox = Array.new(16);
+        // array math { setting the ship's hitbox
+        let hitbox[0] = x;
+        let hitbox[1] = x+1;
+        let hitbox[2] = x+2;
+        let hitbox[3] = x+3;
+        let hitbox[4] = x+4;
+        let hitbox[5] = x+5;
+        let hitbox[6] = x+6;
+        let hitbox[7] = x+7;
+        let hitbox[8] = x+8;
+        let hitbox[9] = x+9;
+        let hitbox[10] = x+10;
+        let hitbox[11] = x+11;
+        let hitbox[12] = x+12;
+        let hitbox[13] = x+13;
+        let hitbox[14] = x+14;
+        let hitbox[15] = x+15;
+        // default azimuth and power is 135, 50
+        let azimuth = 135;
+        let power = 50;
+        return this;
+    }
+
+    method void drawShip() {
+        do Screen.setColor(true);
+        do Screen.drawLine((x-2), y, (x-13), y);
+        do Screen.drawLine((x), (y-1), (x-15), (y-1));
+        do Screen.drawPixel((x-3), (y-2));
+        do Screen.drawPixel((x-12), (y-2));
+        do Screen.drawLine((x-5), (y-2), (x-6), (y-2));
+        do Screen.drawLine((x-8), (y-2), (x-10), (y-2));
+        do Screen.drawLine((x-5), (y-3), (x-6), (y-3));
+        do Screen.drawPixel((x-6), (y-4));
+        do Screen.drawPixel((x-6), (y-5));
+        do Screen.drawPixel((x-9), (y-4));
+        return;
+    }
+
+    method void setParam() {
+        var char key;
+        do Screen.setColor(true);
+        while (key = 0) {
+            let key = Keyboard.keyPressed();
+        }
+        // up arrow
+        if (key = 131) { 
+            if (power < 100) {
+                let power = power + 1; 
+            }
+        }
+        // down arrow
+        if (key = 133) { 
+            if (power > 1) {
+                let power = power - 1;
+            }
+        }
+        // left arrow
+        if (key = 130) { 
+            if (azimuth > 1) {
+                let azimuth = azimuth - 1;
+            } 
+        } 
+        // right arrow
+        if (key = 132) { 
+            if (azimuth < 180) {
+                let azimuth = azimuth + 1; 
+            }
+        }
+        do Output.moveCursor(1,0);
+        do Output.printString("Azimuth: ");
+        if (azimuth < 10) {
+            do Output.printString("00");
+            do Output.printInt(azimuth);
+        }
+        if (azimuth < 100) {
+            do Output.printString("0");
+            do Output.printInt(azimuth);
+        }
+        else {
+            do Output.printInt(azimuth);
+        }
+        do Output.println();
+        do Output.printString("Power: ");
+        if (power < 10) {
+            do Output.printString("0");
+            do Output.printInt(power);
+        }
+        else {
+            do Output.printInt(power);
+        }
+        do Output.println();
+        return;
+
+    }
+
+    method array lookupTable(int azimuth) {
+        // normally you would use trig to calculate horizontal and vertical shell velocity
+        // but we have neither trig, nor float
+        // this is the way instead, broken up into 5 degree increments
+        var array shellTable;
+        let shellTable = Array.new(2);
+        // first value is horizontal, second is vertical
+        if (azimuth = 90) {
+            let shellTable[0] = 0;
+            let shellTable[1] = 100;
+        }
+        if ((azimuth > 90) & (azimuth < 95)) {
+            let shellTable[0] = 9;
+            let shellTable[1] = 99;
+        }
+        if ((azimuth > 94) & (azimuth < 100)) {
+            let shellTable[0] = 17;
+            let shellTable[1] = 98;
+        }
+        if ((azimuth > 99) & (azimuth < 105)) {
+            let shellTable[0] = 26;
+            let shellTable[1] = 97;
+        }
+        if ((azimuth > 104) & (azimuth < 110)) {
+            let shellTable[0] = 34;
+            let shellTable[1] = 94;
+        }
+        if ((azimuth > 109) & (azimuth < 115)) {
+            let shellTable[0] = 42;
+            let shellTable[1] = 91;
+        }
+        if ((azimuth > 114) & (azimuth < 120)) {
+            let shellTable[0] = 50;
+            let shellTable[1] = 87;
+        }
+        if ((azimuth > 119) & (azimuth < 125)) {
+            let shellTable[0] = 57;
+            let shellTable[1] = 82;
+        }
+        if ((azimuth > 124) & (azimuth < 130)) {
+            let shellTable[0] = 64;
+            let shellTable[1] = 77;
+        }
+        if ((azimuth > 129) & (azimuth < 135)) {
+            let shellTable[0] = 71;
+            let shellTable[1] = 71;
+        }
+        if ((azimuth > 134) & (azimuth < 140)) {
+            let shellTable[0] = 77;
+            let shellTable[1] = 64;
+        }
+        if ((azimuth > 139) & (azimuth < 145)) {
+            let shellTable[0] = 82;
+            let shellTable[1] = 57;
+        }
+        if ((azimuth > 144) & (azimuth < 150)) {
+            let shellTable[0] = 87;
+            let shellTable[1] = 50;
+        }
+        if ((azimuth > 149) & (azimuth < 155)) {
+            let shellTable[0] = 91;
+            let shellTable[1] = 42;
+        }
+        if ((azimuth > 154) & (azimuth < 160)) {
+            let shellTable[0] = 94;
+            let shellTable[1] = 34;
+        }
+        if ((azimuth > 159) & (azimuth < 165)) {
+            let shellTable[0] = 97;
+            let shellTable[1] = 26;
+        }
+        if ((azimuth > 164) & (azimuth < 170)) {
+            let shellTable[0] = 98;
+            let shellTable[1] = 17;
+        }
+        if ((azimuth > 169) & (azimuth < 175)) {
+            let shellTable[0] = 99;
+            let shellTable[1] = 9;
+        }
+        if ((azimuth > 174) & (azimuth < 181)) {
+            let shellTable[0] = 99;
+            let shellTable[1] = 1;
+        }
+        // now for the values of azimuth less than 90
+        if ((azimuth < 90) & (azimuth > 84)) {
+            let shellTable[0] = -9;
+            let shellTable[1] = 99;
+        }
+        if ((azimuth < 85) & (azimuth > 79)) {
+            let shellTable[0] = -17;
+            let shellTable[1] = 98;
+        }
+        if ((azimuth < 80) & (azimuth > 74)) {
+            let shellTable[0] = -26;
+            let shellTable[1] = 97;
+        }
+        if ((azimuth < 75) & (azimuth > 69)) {
+            let shellTable[0] = -34;
+            let shellTable[1] = 94;
+        }
+        if ((azimuth < 70) & (azimuth > 64)) {
+            let shellTable[0] = -42;
+            let shellTable[1] = 91;
+        }
+        if ((azimuth < 65) & (azimuth > 59)) {
+            let shellTable[0] = -50;
+            let shellTable[1] = 87;
+        }
+        if ((azimuth < 60) & (azimuth > 54)) {
+            let shellTable[0] = -57;
+            let shellTable[1] = 82;
+        }
+        if ((azimuth < 55) & (azimuth > 49)) {
+            let shellTable[0] = -64;
+            let shellTable[1] = 77;
+        }
+        if ((azimuth < 50) & (azimuth > 44)) {
+            let shellTable[0] = -71;
+            let shellTable[1] = 71;
+        }
+        if ((azimuth < 45) & (azimuth > 39)) {
+            let shellTable[0] = -77;
+            let shellTable[1] = 64;
+        }
+        if ((azimuth < 40) & (azimuth > 34)) {
+            let shellTable[0] = -82;
+            let shellTable[1] = 57;
+        }
+        if ((azimuth < 35) & (azimuth > 29)) {
+            let shellTable[0] = -87;
+            let shellTable[1] = 50;
+        }
+        if ((azimuth < 30) & (azimuth > 24)) {
+            let shellTable[0] = -91;
+            let shellTable[1] = 42;
+        }
+        if ((azimuth < 25) & (azimuth > 19)) {
+            let shellTable[0] = -94;
+            let shellTable[1] = 34;
+        }
+        if ((azimuth < 20) & (azimuth > 14)) {
+            let shellTable[0] = -97;
+            let shellTable[1] = 26;
+        }
+        if ((azimuth < 15) & (azimuth > 9)) {
+            let shellTable[0] = -98;
+            let shellTable[1] = 17;
+        }
+        if ((azimuth < 10) & (azimuth > 4)) {
+            let shellTable[0] = -99;
+            let shellTable[1] = 9;
+        }
+        if ((azimuth < 5) & (azimuth > 0)) {
+            let shellTable[0] = -99;
+            let shellTable[1] = 1;
+        }
+        return shellTable;
+    }
+
+    method int fireShot() {
+        var int hit;
+        var int horizontal;
+        var int vertical;
+        var array shotParameters;
+        var int pos_x;
+        var int pos_y;
+        var int new_pos_x;
+        var int new_pos_y;
+        var int time;
+        let time = 0;
+        let shotParameters = Array.new(2);
+        let shotParameters = lookupTable(azimuth);
+        let horizontal = shotParameters[0];
+        let vertical = shotParameters[1];
+        let hit = 0;
+        do Screen.setColor(true);
+        do Screen.drawPixel(x-9, y-8);
+        let pos_x = x-9;
+        let pos_y = y-8;
+        do renderShell(pos_x, pos_y);
+        let new_pos_x = pos_x + ((horizontal * power) / 100);
+        let new_pos_y = pos_y - ((vertical * power) / 100);
+        while (((new_pos_x - 3 > 0) & (new_pos_x + 3 < 511)) & ((new_pos_y - 3 > 0)) & (new_pos_y + 3 < 255)) {
+            do eraseShell(pos_x, pos_y);
+            let pos_x = new_pos_x;
+            let pos_y = new_pos_y;
+            let new_pos_x = new_pos_x + (horizontal * power / 100);
+            let new_pos_y = new_pos_y - ((vertical * power / 100) - (30 * time) / 10);
+            if (((new_pos_x > 0) & (new_pos_x < 511)) & ((new_pos_y > 0)) & (new_pos_y < 255)) {
+                do renderShell(new_pos_x, new_pos_y);
+            }
+            let time = time + 1;
+            do Sys.wait(500);
+        }
+        do eraseShell(pos_x, pos_y);
+        let hit = new_pos_x;
+        do Screen.setColor(true);
+        do Screen.drawLine((hit - 3), (255), (hit+3), (255));
+        do Screen.drawLine((hit), (255), (hit), (245));
+        do Sys.wait(1000);
+        do Screen.setColor(false);
+        do Screen.drawLine((hit - 3), (255), (hit+3), (255));
+        do Screen.drawLine((hit), (255), (hit), (245));
+        do Screen.setColor(true);
+        return hit;
+    }
+
+    method void renderShell(int x, int y) {
+        // draws the shell as a cross shape so it is more visible
+        do Screen.setColor(true);
+        do Screen.drawLine((x-3), (y), (x+3), (y));
+        do Screen.drawLine((x), (y-3), (x), (y+3));
+        return;
+    }
+
+    method void eraseShell(int x, int y) {
+        // erases the shell at positions (x, y)
+        do Screen.setColor(false);
+        do Screen.drawLine((x-1), (y), (x+1), (y));
+        do Screen.drawLine((x), (y-1), (x), (y+1));
+        do Sys.wait(250);
+        do Screen.drawLine((x-3), (y), (x+3), (y));
+        do Screen.drawLine((x), (y-3), (x), (y+3));
+        do Screen.setColor(true);
+        return;
+    }
+
+    method array getHitbox() {
+        var array hitMarker;
+        let hitMarker = Array.new(2);
+        let hitMarker[0] = hitbox[0];
+        let hitMarker[1] = hitbox[15];
+        return hitMarker;
+    }
+
+    method void sink() {
+        do Memory.deAlloc(this);
+        return;
+    }
+}

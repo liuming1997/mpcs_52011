@@ -1,0 +1,379 @@
+"""
+MPCS 52011 Project 7: VM translator, Part 1
+"""
+
+#!/usr/bin/env python
+
+import pathlib
+import re
+import argparse
+import os
+
+commands = {
+    "push" : "push",
+    "pop" : "pop",
+    "add" : "math",
+    "sub" : "math",
+    "neg" : "math",
+    "eq"  : "math",
+    "gt"  : "math",
+    "lt"  : "math",
+    "and" : "math",
+    "or"  : "math",
+    "not" : "math"
+}
+
+lineNum = 1
+
+class Parser:
+    def __init__(self, path):
+        """
+        Initialize the Parser class by taking in a file.
+        Still has some trouble with relative paths.
+        Note: This currently DOES NOT work for all files in a directory. It works well enough for Project 7, though.
+        """
+        reads = []
+        # mostly copied from Project 6
+        p = pathlib.Path(path)
+        # convert path to absolute
+        p = p.absolute()
+        if os.path.isfile(p):
+            reads.append(p)
+        else:
+            for files in os.listdir(p):
+                if files[-3:] == ".vm":
+                    reads.append(p)
+        for thing in reads:
+            with open(str(thing), 'r') as f:
+                dump = f.read()
+        
+            # do .vm files even have comments? remove them anyway, just in case
+            # regex black magic
+            pattern = re.compile("^\s+|(//.+)|(/\*(.|\n)*?\*/)|^$|(^\n$)\s*", re.MULTILINE)
+            export = re.sub(pattern, "", dump)
+            # removes the empty newline at the beginning
+            export = export.strip()
+
+            final = ""
+            # remove the lines that are just empty space
+            exportList = export.splitlines()
+            for i in exportList:
+                if i != "":
+                    i = i.strip()
+                    final += i
+                    final += "\n"
+
+            # turn Path into string so that we might change the extension
+            exportPath = str(thing)
+            # change the file extension
+            exportPath = exportPath.replace(".vm", ".asm")
+            # now change it back
+            exportPath = pathlib.Path(exportPath)
+
+            self.exportPath = exportPath
+            self.contents = final
+
+    def translate(self):
+        global commands
+        self.index = 0
+        self.out = ""
+        lines = self.contents.splitlines()
+        for line in lines:
+            orders = line.split()
+            orderType = commands.get(orders[0], "no command")
+            if orderType == "push" or orderType == "pop":
+                first = orders[1]
+                second = orders[2]
+                Parser.writePushPop(self, orderType, first, second)
+            elif orderType == "math":
+                Parser.writeArithmetic(self, orders[0])
+            else:
+                # do nothing, if it can't figure out what to do instead
+                continue
+        with open(self.exportPath, 'w') as export:
+            export.write(self.out)
+        print("Successfully wrote to " + str(self.exportPath))
+
+    def loadNumbers(self):
+        # Loads the first value into the data register, and puts the second in memory. This happens a lot, so might as well save some lines.
+        self.out += "@SP\n"
+        self.out += "AM=M-1\n"
+        self.out += "D=M\n" 
+        self.out += "@SP\n"
+        self.out += "AM=M-1\n" 
+
+    def loadNumbers2(self):
+        # Like loadNumbers, but with one key difference.
+        self.out += "@SP\n"
+        self.out += "AM=M-1\n"
+        self.out += "D=M\n" 
+        self.out += "@SP\n"
+        self.out += "A=M-1\n" 
+
+    def writeArithmetic(self, math):
+        global lineNum
+        # write a line number so I can tell what translates to what
+        # used for debugging
+        # self.out += "// line number " + str(lineNum) + " math \n"
+        if math == "add":
+            Parser.loadNumbers(self)
+            # write the sum
+            self.out += "M=D+M\n" 
+            self.out += "@SP\n"
+            self.out += "M=M+1\n" 
+        elif math == "sub":
+            Parser.loadNumbers(self)
+            # write difference
+            self.out += "M=M-D\n" 
+            self.out += "@SP\n"
+            self.out += "M=M+1\n" 
+        elif math == "neg":
+            # get value
+            self.out += "@SP\n" 
+            self.out += "A=M-1\n"
+            # negate said value 
+            self.out += "M=-M\n"
+        elif math == "eq":
+            Parser.loadNumbers2(self)
+            # subtraction
+            self.out += "D=M-D\n"
+            # put TRUE on stack  
+            self.out += "M=-1\n" 
+            self.out += "@equals" + str(self.index) + "\n"
+            self.out += "D;JEQ\n"
+            # set to FALSE otherwise
+            self.out += "@SP\n" 
+            self.out += "A=M-1\n"
+            self.out += "M=0\n" 
+            self.out += "(equals" + str(self.index) + ")\n"
+            self.index += 1
+        elif math == "gt":
+            # mostly copied from eq
+            Parser.loadNumbers2(self)
+            # subtraction
+            self.out += "D=M-D\n"
+            # put TRUE on stack 
+            self.out += "M=-1\n"
+            self.out += "@greater" + str(self.index) + "\n" 
+            self.out += "D;JGT\n"
+            # set to FALSE otherwise
+            self.out += "@SP\n" 
+            self.out += "A=M-1\n"
+            self.out += "M=0\n" 
+            self.out += "(greater" + str(self.index) + ")\n"
+            self.index += 1
+        elif math == "lt":
+            # also mostly copied from eq
+            Parser.loadNumbers2(self)
+            # subtraction
+            self.out += "D=M-D\n" 
+            # put TRUE on stack
+            self.out += "M=-1\n" 
+            self.out += "@less" + str(self.index) + "\n"
+            self.out += "D;JLT\n"
+            # set to FALSE otherwise
+            self.out += "@SP\n" 
+            self.out += "A=M-1\n"
+            self.out += "M=0\n" 
+            self.out += "(less" + str(self.index) + ")\n"
+            self.index += 1
+        elif math == "and":
+            Parser.loadNumbers2(self)
+            # put result into stack
+            self.out += "M=D&M\n" 
+        elif math == "or":
+            Parser.loadNumbers2(self)
+            # put result into stack
+            self.out += "M=D|M\n" 
+        elif math == "not":
+            # get value
+            self.out += "@SP\n" 
+            self.out += "A=M-1\n" 
+            # NOT said value
+            self.out += "M=!M\n" 
+        else:
+            # do nothing if not otherwise covered
+            pass
+
+    def putOnStack(self):
+        # puts something to the stack
+        self.out += "@SP\n"
+        self.out += "A=M\n"
+        self.out += "M=D\n"
+
+    def incrementStackPointer(self):
+        # Increments the stack pointer since it comes up so much.
+        self.out += "@SP\n" 
+        self.out += "M=M+1\n"
+
+    def commonInst(self):
+        # I don't know what else to call it
+        # populate value into D
+        self.out += "@SP\n" 
+        self.out += "AM=M-1\n"
+        self.out += "D=M\n"
+        # just R13 address things
+        self.out += "@R13\n"
+        self.out += "A=M\n"
+        self.out += "M=D\n"
+
+    def writePushPop(self, order, seg, value):
+        global lineNum
+        # write a line number so I can tell what translates to what
+        # used for debugging
+        # self.out += "// line number " + str(lineNum) + "\n"
+        if order == "push":
+            self.out += "// push \n"
+            if seg == "constant":
+                # load value, move to D
+                self.out += "@" + value + "\n" 
+                self.out += "D=A\n" 
+                # laod stack pointer, put on stack
+                self.out += "@SP\n" 
+                self.out += "A=M\n" 
+                self.out += "M=D\n" 
+                Parser.incrementStackPointer(self)
+            elif seg == "static":
+                # load value, get contents of memory
+                self.out += "@" + value + "\n"
+                self.out += "D=M\n"
+                # load stack pointer, put on stack
+                self.out += "@SP\n" 
+                self.out += "A=M\n" 
+                self.out += "M=D\n"
+                Parser.incrementStackPointer(self)
+            elif seg == "this":
+                # load value into D
+                self.out += "@" + value + "\n"
+                self.out += "D=A\n"
+                self.out += "@THIS\n"
+                self.out += "A=M+D\n" 
+                self.out += "D=M\n"
+                Parser.putOnStack(self)
+                Parser.incrementStackPointer(self)
+            elif seg == "that":
+                # load value into D
+                self.out += "@" + value + "\n" 
+                self.out += "D=A\n"
+                self.out += "@THAT\n"
+                self.out += "A=M+D\n" 
+                self.out += "D=M\n"
+                Parser.putOnStack(self)
+                Parser.incrementStackPointer(self)
+            elif seg == "argument":
+                # load value into D
+                self.out += "@" + value + "\n"
+                self.out += "D=A\n"
+                self.out += "@ARG\n"
+                self.out += "A=M+D\n" 
+                self.out += "D=M\n"
+                Parser.putOnStack(self)
+                Parser.incrementStackPointer(self)
+            elif seg == "local":
+                # load value into D
+                self.out += "@" + value + "\n"
+                self.out += "D=A\n"
+                self.out += "@LCL\n"
+                self.out += "A=M+D\n" 
+                self.out += "D=M\n"
+                Parser.putOnStack(self)
+                Parser.incrementStackPointer(self)
+            elif seg == "temp":
+                # load value into D
+                self.out += "@" + value + "\n" 
+                self.out += "D=A\n"
+                self.out += "@5\n"
+                self.out += "A=A+D\n" 
+                self.out += "D=M\n"
+                Parser.putOnStack(self)
+                Parser.incrementStackPointer(self)
+            elif seg == "pointer":
+                # load value into D
+                self.out += "@" + value + "\n" 
+                self.out += "D=A\n"
+                self.out += "@3\n"
+                self.out += "A=A+D\n" 
+                self.out += "D=M\n"
+                Parser.putOnStack(self)
+                Parser.incrementStackPointer(self)
+            else:
+                # if it isn't one of the above do nothing
+                pass
+        elif order == "pop":
+            self.out += "// pop \n"
+            if seg == "static":
+                # populate value into D
+                self.out += "@SP\n" 
+                self.out += "AM=M-1\n"
+                self.out += "D=M\n"
+                self.out += "@" + value + "\n"
+                self.out += "M=D\n"
+            elif seg == "this":
+                # get address into R13
+                self.out += "@" + value + "\n" 
+                self.out += "D=A\n"
+                self.out += "@THIS\n"
+                self.out += "D=M+D\n" 
+                self.out += "@R13\n"
+                self.out += "M=D\n"
+                Parser.commonInst(self)
+            elif seg == "that":
+                # get address into R13
+                self.out += "@" + value + "\n" 
+                self.out += "D=A\n"
+                self.out += "@THAT\n"
+                self.out += "D=M+D\n" 
+                self.out += "@R13\n"
+                self.out += "M=D\n"
+                Parser.commonInst(self)
+            elif seg == "argument":
+                # get address into R13
+                self.out += "@" + value + "\n" 
+                self.out += "D=A\n"
+                self.out += "@ARG\n"
+                self.out += "D=M+D\n" 
+                self.out += "@R13\n"
+                self.out += "M=D\n"
+                Parser.commonInst(self)
+            elif seg == "local":
+                # get address into R13
+                self.out += "@" + value + "\n" 
+                self.out += "D=A\n"
+                self.out += "@LCL\n"
+                self.out += "D=M+D\n" 
+                self.out += "@R13\n"
+                self.out += "M=D\n"
+                Parser.commonInst(self)
+            elif seg == "pointer":
+                # get address into R13
+                self.out += "@" + value + "\n" 
+                self.out += "D=A\n"
+                self.out += "@3\n"
+                self.out += "D=A+D\n" 
+                self.out += "@R13\n"
+                self.out += "M=D\n"
+                Parser.commonInst(self)
+            elif seg == "temp":
+                # get address into R13
+                self.out += "@" + value + "\n" 
+                self.out += "D=A\n"
+                self.out += "@5\n"
+                self.out += "D=A+D\n" 
+                self.out += "@R13\n"
+                self.out += "M=D\n"
+                Parser.commonInst(self)
+            else:
+                # do nothing if not covered yet (will revise in project 8)
+                pass
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('translate', help="translate target .vm file into .asm code", type=str)
+    args = parser.parse_args()
+
+    if args.translate:
+        vm = Parser(args.translate)
+        vm = Parser.translate(vm)
+
+if __name__ == "__main__":
+    main()

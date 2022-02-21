@@ -1,0 +1,23 @@
+// This file is part of MPCS52011
+
+/**
+ * Months that have 31 days: 
+ * out = 1 if the input month has 31 days, 0 otherwise
+ * January is month 0001, February is month 0010, etc.
+ * for months 0, 13, 14, and 15 the output is indeterminite
+ */
+
+CHIP Months {
+    IN in[4];
+    OUT out;
+
+    PARTS:
+    // Put your code here:
+    
+    // the Karnaugh map tells us that we want A'D + AD'
+    Not(in=in[3], out=na);
+    Not(in=in[0], out=nd);
+    And(a=na, b=in[0], out=part1);
+    And(a=nd, b=in[3], out=part2);
+    Or(a=part1, b=part2, out=out);
+}

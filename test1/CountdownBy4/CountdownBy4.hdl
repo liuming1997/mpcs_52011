@@ -1,0 +1,30 @@
+/*
+ * CountdownBy4
+ *
+ * input: 16-bit 2's complement number
+ *        load bit
+ * output: 16-bit 2's complement number
+ *
+ * if load is 1, load in[16] into the counter
+ * if load is 0, subtract 4 from the counter
+ */
+
+CHIP CountdownBy4 {
+    IN in[16], load;
+    OUT out[16];
+
+    PARTS:
+    // Put your code here
+
+    // mostly copied from my PC.hdl
+
+    // Increment
+    Add16(a=loopback, b[0..1]=false, b[2..15]=true, out=count);
+    Mux16(a=count, b=loopback, sel=load, out=decre);
+
+    // Load
+    Mux16(a=decre, b=in, sel=load, out=loa);
+    
+    // Register
+    Register(in=loa, load=true, out=out, out=loopback);
+}

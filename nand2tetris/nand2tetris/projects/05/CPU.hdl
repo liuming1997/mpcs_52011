@@ -1,0 +1,92 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/05/CPU.hdl
+
+/**
+ * The Hack CPU (Central Processing unit), consisting of an ALU,
+ * two registers named A and D, and a program counter named PC.
+ * The CPU is designed to fetch and execute instructions written in 
+ * the Hack machine language. In particular, functions as follows:
+ * Executes the inputted instruction according to the Hack machine 
+ * language specification. The D and A in the language specification
+ * refer to CPU-resident registers, while M refers to the external
+ * memory location addressed by A, i.e. to Memory[A]. The inM input 
+ * holds the value of this location. If the current instruction needs 
+ * to write a value to M, the value is placed in outM, the address 
+ * of the target location is placed in the addressM output, and the 
+ * writeM control bit is asserted. (When writeM==0, any value may 
+ * appear in outM). The outM and writeM outputs are combinational: 
+ * they are affected instantaneously by the execution of the current 
+ * instruction. The addressM and pc outputs are clocked: although they 
+ * are affected by the execution of the current instruction, they commit 
+ * to their new values only in the next time step. If reset==1 then the 
+ * CPU jumps to address 0 (i.e. pc is set to 0 in next time step) rather 
+ * than to the address resulting from executing the current instruction. 
+ */
+
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+    // Put your code here:
+
+    // note: temp[int] internal pins are used to get aroud the otherwise arcane "can't connect gate's output pin to part" error
+    // they are named in the order of which each was discovered in the Hardware Simulator, and *not* chronologically
+    // writeM here so I don't forget about it later
+    And(a=instruction[3], b=instruction[15], out=writeM);
+
+    // if instruction[15] = 0, we do A instructions
+    // instruction[15], or the absence thereof, repeatedly tripped me up
+    Not(in=instruction[15], out=instrA);
+    // we also load A when instruction[5] = 1
+    Or(a=instrA, b=instruction[5], out=doA);
+
+
+    // choose either outM or instruction as the input based on instruction[15]
+    Mux16(a=instruction, b=temp1, sel=instruction[15], out=regA);
+    // nand2tetris suggests using the built-in ARegister and DRegister chips instead of Register; I will take making life easy
+    // source: https://www.nand2tetris.org/project05 
+    // we want A to go to the next MUX in the CPU diagram, and to the PC; however, addressM is only 15 bits so we need a separate OUT for that
+    ARegister(in=regA, load=doA, out=outA, out[0..14]=addressM);
+    // send this one to the ALU, either A or M
+    Mux16(a=outA, b=inM, sel=instruction[12], out=AMtoALU);
+    
+
+    // D register things
+    And(a=instruction[15], b=instruction[4], out=loadD);
+    DRegister(in=temp1, load=loadD, out=DtoALU);
+
+    // core of it all
+    ALU(x=DtoALU, y=AMtoALU, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=outM, out=temp1, zr=zr, ng=ng);
+    
+    // negate ZR and NG
+    Not(in=zr, out=notZR);
+    Not(in=ng, out=notNG);
+    
+    // or loadPC bit shenanegans
+    And(a=instruction[15], b=instruction[2], out=jlt);
+    And(a=jlt, b=ng, out=loadPC0);
+    And(a=instruction[15], b=instruction[1], out=jeq);
+    And(a=jeq, b=zr, out=loadPC1);
+    Or(a=loadPC0, b=loadPC1, out=loadPC2);
+    // two layers of abstraction here to find whether or not to load the PC
+    And(a=instruction[0], b=instruction[15], out=jgt0);
+    And(a=notNG, b=notZR, out=jgt1);
+    And(a=jgt0, b=jgt1, out=loadPC3);
+    Or(a=loadPC2, b=loadPC3, out=loadPC);
+
+    
+    // PC, we always increment
+    PC(in=outA, load=loadPC, inc=true, reset=reset, out[0..14]=pc);
+}

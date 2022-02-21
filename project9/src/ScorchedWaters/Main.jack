@@ -1,0 +1,176 @@
+/* The main game program. This started out as an artillery game similar to Tanks (the flash game) or Scorched Earth, but I had a lot of trouble with terrain so I scrapped that idea.
+It is instead now a much simpler artillery game featuring a duel between a ship and a coastal defense battery, with you in charge of the ship.
+Originally it was also supposed to do things like let you fire bomblets with reduced range, and drive around, but time. Maybe if I want to end up on nand2tetris' webpage one day,
+I'll build it as intended. However, Jack is a very clunky language, and if I wanted to do this for my friends I'd use Python. At least there you don't have static length arrays.
+Limitations: Your ship actually fires its "shell" from the center of its hitbox. This may be odd to new players. To compensate, the enemy's first shot will ALWAYS miss.
+Overpenetration is an issue; there isn't a good way for a shell to actually determine if it's inside a hitbox array, so I just cut that out and said that if it lands (hits zero)
+at the last point it is valid on the screen and hits the fortress, you're good.
+
+Your enemy's first shot will always be long (or short), and then he will dial in the range, taking how much he misses and dividing by 2.
+
+
+*/
+
+class Main {
+    function void main() {
+        var Ship warship;
+        var Battery coastal;
+        var int shipStart;
+        var int batteryStart;
+        var char key;
+        var boolean over;
+        var int batteryHit;
+        var int playerHit;
+        var array shipHitBox;
+        var array batteryHitBox;
+        var int initialAim;
+        let initialAim = 50;
+        let over = false;
+        // "random" number generator
+        do Random.setSeed(0);
+        let shipStart = Random.randRange(7);
+        let shipStart = (shipStart * 3 + 4) * 8;
+        let warship = Ship.new(shipStart,255);
+        let batteryStart = Random.randRange(7);
+        let batteryStart = (batteryStart* 3 + 32) * 8;
+        let coastal = Battery.new(batteryStart, 255);
+        do Main.introduction();
+        do Screen.clearScreen();
+        do warship.drawShip();
+        do coastal.drawBattery();
+        let shipHitBox = warship.getHitbox();
+        let batteryHitBox = coastal.getHitbox();
+        while (~over) {
+            // the human player's turn
+            while (~(key = 32)) {
+                let key = Keyboard.keyPressed();
+                do warship.setParam();
+                if (key = 32) {
+                    let batteryHit = warship.fireShot();
+                }
+            }
+            if ((batteryHit > batteryHitBox[0] - 8) & (batteryHit < batteryHitBox[1] + 8)) {
+                do Main.victory();
+            }
+            // the computer's turn
+            let playerHit = coastal.fireShot(initialAim, 50);
+            let initialAim = initialAim - 5;
+            do Output.printInt(playerHit);
+            do Output.printInt(shipHitBox[0]);
+            do Output.printInt(shipHitBox[1]);
+            if ((playerHit > shipHitBox[0] - 4) & (playerHit < shipHitBox[1] + 4)) {
+                do Main.defeat();
+            }
+            let key = Keyboard.keyPressed();
+        }
+        return;
+    }
+
+    function void introduction() {
+        // brief introduction and instructions
+        var char key; // query for keyboard input later on
+        do Output.moveCursor(1,0);
+        do Output.printString("Scorched Waters");
+        do Output.println();
+        do Output.println();
+        do Output.printString("     Weapons Officer, we have located the enemy coastal fort.");
+        do Output.println();
+        do Output.printString("     However, our radar is not working, and we must hurry.");
+        do Output.println();
+        do Output.printString("     We must therefore visually confirm the fall of shot.");
+        do Output.println();
+        do Output.printString("     You have command of the ship's fire-control system.");
+        do Output.println();
+        do Output.printString("     Aim well, sir, our fleet needs to break through.");
+        do Output.println();
+        do Output.println();
+        do Output.printString("Instructions for Scorched Waters:");
+        do Output.println();
+        do Output.println();
+        do Output.printString("     Adjust the elevation by using LEFT or RIGHT ARROW keys.");
+        do Output.println();
+        do Output.printString("     Azimuth is from 0 (full left) to 180 (full right).");
+        do Output.println();
+        do Output.printString("     Adjust the power by using UP or DOWN ARROW keys.");
+        do Output.println();
+        do Output.printString("     Power is from 0 (base charge) to 100 (full charge).");
+        do Output.println();
+        do Output.printString("     Press SPACEBAR to fire.");
+        do Output.println();
+        do Output.printString("     The coastal fort will shoot back while you reload.");
+        do Output.println();
+        do Output.printString("     Both yours and the enemy's shells are equally deadly.");
+        do Output.println();
+        do Output.printString("     However, some fuzes are defective and will overpenetrate.");
+        do Output.println();
+        do Output.printString("     Good luck; the fleet is counting on you.");
+        do Output.println();
+        do Output.println();
+        do Output.printString("Press any key to begin...");
+        do Output.println();
+        let key = 0;
+        while (key = 0) {
+            let key = Keyboard.keyPressed();
+        }
+        do Screen.clearScreen();
+        return;
+    }
+
+    function void defeat() {
+        // shows defeat message (enemy hit you)
+        var char key;
+        do Output.moveCursor(6,0);
+        do Output.printString("YOUR SHIP HAS BEEN DESTROYED. MISSION FAILED.");
+        do Output.println();
+        do Output.printString("PRESS ANY KEY TO ACKNOWLEDGE...");
+        do Output.println();
+        let key = 0;
+        while (key = 0) {
+            let key = Keyboard.keyPressed();
+        }
+        do Screen.clearScreen();
+        do Output.moveCursor(6,0);
+        do Output.printString("                         GAME OVER");
+        do Sys.halt();
+        return;
+    }
+
+    function void victory() {
+        // shows victory message (you hit the enemy)
+        var char key;
+        do Output.moveCursor(6,0);
+        do Output.printString("ENEMY COASTAL DEFENSE FORT NEUTRALIZED. BRAVO ZULU.");
+        do Output.println();
+        do Output.printString("PRESS ANY KEY TO ACKNOWLEDGE...");
+        do Output.println();
+        let key = 0;
+        while (key = 0) {
+            let key = Keyboard.keyPressed();
+        }
+        do Screen.clearScreen();
+        do Output.moveCursor(6,0);
+        do Output.printString("                          VICTORY");
+        do Sys.halt();
+        return;
+    }
+
+    function boolean again() {
+        // dummied out due to lack of time
+        var boolean playAgain;
+        var char key;
+        let key = 0;
+        do Screen.clearScreen();
+        do Output.moveCursor(7,0);
+        do Output.printString("Press Spacebar if you would like to play again.");
+        while (key = 0) {
+            let key = Keyboard.keyPressed();
+        }
+        if (key = 32) {
+            let playAgain = true;
+        }
+        else {
+            let playAgain = false;
+        }
+        return playAgain;
+    }
+}

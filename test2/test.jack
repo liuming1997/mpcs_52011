@@ -1,0 +1,8 @@
+class Character {
+    static array characters;
+    static int maxChars;
+    static int numChars;
+    field String name;
+    field char race, type;
+    field int strength, dexterity, constitution, intelligence, wisdom, charisma;
+}

@@ -1,0 +1,1 @@
+All chips appear to work.
